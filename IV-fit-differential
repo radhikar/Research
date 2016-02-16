@@ -1,0 +1,64 @@
+"""
+Demo using fontdict to control style of text and labels.
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import csv
+from scipy import interpolate
+
+f = open('pilipH7.csv')
+csv_f = csv.reader(f)
+
+Voltage = []
+Current = []
+x = []
+y = []
+
+
+
+for row in csv_f:
+	Voltage.append(row[0])
+	Current.append(row[1])
+
+for j in Voltage[1:]:
+	x.append(round(float(j)*1000,2))
+
+for k in Current[1:]:
+	y.append(round(float(k)*1e12, 2))
+
+#Interplotation requires list be in ascending order!
+#x.reverse()
+#y.reverse()	
+	
+tck = interpolate.splrep(x,y, s=0)
+xnew = np.arange(x[0], x[-1], 1)
+ynew = interpolate.splev(xnew, tck, der=0)
+yder = interpolate.splev(xnew, tck, der=1)
+
+m,b = np.polyfit(xnew, ynew, 1)
+yder_norm = yder/m
+
+#cond = ynew/xnew
+#yder_norm = yder/cond
+
+fig, ax1 = plt.subplots()
+ax1.plot(x, y, 'bo', xnew, ynew, 'b')
+ax1.set_xlabel('Voltage (mV)')
+ax1.set_ylabel('Current (pA)', color='b')
+for t1 in ax1.get_yticklabels():
+	t1.set_color('b')
+#ax1.set_title('IV response of Carbon Nanotube')
+
+ax2 = ax1.twinx()
+ax2.plot(xnew, yder_norm, 'k')
+ax2.set_ylabel(r'(dI/dV)/(I/V) (arb. unit)')
+
+ax1.set_xlim(x[0]*1.1, x[-1]*1.1)
+ax1.set_ylim(y[0]*1.1, y[-1]*1.1)
+
+# Tweak spacing to prevent clipping of ylabel
+plt.subplots_adjust(right =0.85)
+#plt.show()
+
+plt.savefig('pilipH7.png')
+#exit()
