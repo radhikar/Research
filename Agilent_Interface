@@ -1,0 +1,31 @@
+from numpy import array, arange
+from prologix_gpib import GPIBController 
+
+VOLTAGE_MIN  = 1.00
+VOLTAGE_MAX  = 2.00
+VOLTAGE_STEP = 0.10
+
+VOLTAGES = arange(VOLTAGE_MIN,VOLTAGE_MAX, VOLTAGE_STEP)
+
+
+
+gpib = GPIBController()
+#we are talking to the Agilent 3641A power supply
+gpib.set_addr(5)
+gpib.set_eos(2)
+print gpib.exchange("*IDN?")
+
+C = []
+
+for voltage in VOLTAGES:
+    cmd = "VOLT %0.2f" % voltage
+    gpib.send(cmd)
+    q_curr = gpib.exchange("CURRENT?")
+    C.append(q_curr)
+
+C = array(C)
+print C
+
+
+print gpib.exchange("SYSTEM:ERROR?")
+    
