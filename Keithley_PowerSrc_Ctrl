@@ -1,0 +1,47 @@
+from numpy import array, arange
+from prologix_gpib import GPIBController, GPIBInstrument 
+
+GPIB_CONTROLLER_IP_ADDRESS =  "128.119.56.100"
+
+VOLTAGE_MIN  = 1.00
+VOLTAGE_MAX  = 2.00
+VOLTAGE_STEP = 0.10
+
+VOLTAGES = arange(VOLTAGE_MIN,VOLTAGE_MAX, VOLTAGE_STEP)
+
+
+yellow_box = GPIBController(GPIB_CONTROLLER_IP_ADDRESS)
+Agilent_gpib = GPIBInstrument(gpib_controller = yellow_box, gpib_address = 5, eos_mode = 2)
+Keithley_gpib = GPIBInstrument(gpib_controller = yellow_box, gpib_address = 1, eos_mode = 2)
+#we are talking to the Agilent 3641A power supply
+
+
+Agilent_gpib.send("OUTPUT ON")
+print Agilent_gpib.exchange("*IDN?")
+print Keithley_gpib.exchange("*IDN?")
+
+
+
+C = []
+K = []
+
+for voltage in VOLTAGES:
+    print "setting voltage:", voltage    
+    cmd = "VOLT %0.2f" % voltage
+    Agilent_gpib.send(cmd)
+    q_curr = Agilent_gpib.exchange("CURRENT?")
+    print "read current:", q_curr
+    C.append(q_curr)
+    K_read = Keithley_gpib.exchange("FETCH?")
+    print "resistance:", K_read
+    K.append(K_read)
+
+C = array(C)
+print C
+print K
+
+
+print Agilent_gpib.exchange("SYSTEM:ERROR?")
+print Keithley_gpib.exchange("SYSTEM:ERROR?")
+
+Agilent_gpib.send("OUTPUT OFF")
