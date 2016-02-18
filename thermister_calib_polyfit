@@ -1,0 +1,63 @@
+from numpy import arange, log10, loadtxt, linspace, polyfit, polyval, poly1d
+import matplotlib.pyplot as plt
+
+INPUT_FILEPATH = "data/calibration.csv"
+CELSIUS_SCALE = arange(-40,140,10)
+CELSIUS_SCALE_XTICKLABELS = map(str,CELSIUS_SCALE)
+CELSIUS_SCALE_XTICKS = 1000.0/(CELSIUS_SCALE + 273.15)
+TITLE_POSITION = 1.06
+
+D = loadtxt(INPUT_FILEPATH, delimiter = ',')
+
+t = D[:,0]
+T = D[:,1]
+R = D[:,2]
+
+
+
+t0 = t[0]
+t  = (t-t0)/3600.0 
+
+
+T_kelvin = T + 273.15
+
+invT = 1000.0/T_kelvin
+
+#getting log of the element of the array R
+logR = log10(R)
+
+#fit data with 2nd degree polynomial
+p_fit = polyfit(logR,invT,2)
+logR_fit = linspace(logR.min(),logR.max(),100)
+R_fit = 10**logR_fit
+invT_fit = polyval(p_fit,logR_fit)
+poly_latex = r"$1000/T = %0.2f [\log_{10}(R)]^2 + %0.2f \log_{10}(R) + %0.2f$" % tuple(p_fit)  
+poly_fit = poly1d(p_fit)   #construct the polynomial
+print "fit polynomial:\n%s" % poly_fit   # print the polynomial
+
+#lot the data and fit
+fig1 = plt.figure(figsize=(11.5, 8))
+ax1  = fig1.add_subplot(111)
+
+#add non-linear Celius axis to top
+ax2 = ax1.twiny()            
+ax2.set_xlabel(r"Temperature $^{\circ}$C")
+ax2.set_xticks(CELSIUS_SCALE_XTICKS)
+ax2.set_xticklabels(CELSIUS_SCALE_XTICKLABELS) 
+
+ax1.semilogy(invT, R, 'k+', label = "data")
+ax1.semilogy(invT_fit, R_fit,'r-', label = 'fit: %s' % poly_latex)
+
+#post plot formatting adjustments
+ax2.set_xlim(ax1.get_xlim())
+ax2.set_ylim(ax1.get_ylim())
+plt.setp(ax2.get_xticklabels(), fontsize=10)
+
+ax1.set_title("Epoxy Coated 1k Thermistor - Steinhart-Hart Curve", y = TITLE_POSITION)
+ax1.set_xlabel(r'$1000$ K$/T$')
+ax1.set_ylabel(r'Resistance, $R$ (Ohms)')
+ax1.legend(loc = 'lower right')
+
+
+fig1.savefig("plots/calibration.pdf")
+plt.show()
