@@ -1,0 +1,104 @@
+from pylab import *
+DIFF_THRESH = 0.01
+SETTLE_TIME = 150
+VOLTAGE_SCALE = 1e6
+
+SAMPLE_NAME = "Si(100) n-type (Room Temp.)" 
+DATASET = "2012-08-15_Si(111)_n-type_RT_peltier_test"
+
+D = loadtxt(DATASET +".csv",delimiter = ",", skiprows = 3)
+t = D[:,0]
+spA   = D[:,1]
+spB   = D[:,2]
+measA = D[:,3]
+measB = D[:,4]
+
+spGrad = spA - spB
+measGrad = measA - measB
+
+
+
+#partition data in to sub arrays for each setpoint
+diffSpGrad       = diff(spGrad)
+partsIndices_neg = where( diffSpGrad < -DIFF_THRESH )[0]
+partsIndices_pos = where( diffSpGrad >  DIFF_THRESH )[0]
+
+
+A = []
+
+left_index = 3200
+for right_index in partsIndices_neg[1:]:
+    part = D[left_index:right_index]
+    #chop off data before settled
+    part = part[SETTLE_TIME:]
+    measA_part = part[:,3]
+    measB_part = part[:,4]
+    G_part = measA_part - measB_part
+    V_part = part[:,8]
+    A.append((G_part.mean(), G_part.std(), V_part.mean(), V_part.std()))    
+    left_index = right_index + 1
+
+left_index = 0
+for right_index in partsIndices_pos[:-1]:
+    part = D[left_index:right_index]
+    #chop off data before settled
+    part = part[SETTLE_TIME:]    
+    measA_part = part[:,3]
+    measB_part = part[:,4]
+    G_part = measA_part - measB_part
+    V_part = part[:,8]
+    A.append((G_part.mean(), G_part.std(), V_part.mean(), V_part.std()))    
+    left_index = right_index + 1
+
+
+A.sort()
+A = array(A).transpose()
+G_mean, G_std, V_mean, V_std = A
+G_mean = G_mean - 0.365
+V_mean = V_mean - (11.125/ 1e6 )
+
+V_mean *= VOLTAGE_SCALE
+V_std  *= VOLTAGE_SCALE
+
+
+p0 = (0.0,1.0)
+
+def fit_func(p, x):
+        return p[0] + p[1]*x
+        
+import scipy.odr as odr
+
+model  = odr.Model(fit_func)
+data   = odr.RealData(x=G_mean,y=V_mean,sx=G_std,sy=V_std)
+fitter = odr.ODR(data,model,beta0=p0)
+fit = fitter.run()
+print fit.pprint()
+
+fit_x = linspace(G_mean.min(),G_mean.max(),100)
+fit_y = fit_func(fit.beta,fit_x)
+
+fig = figure()
+ax1 = fig.add_subplot(111)
+ax1.errorbar(G_mean,V_mean,xerr=G_std,yerr=V_std,fmt='k.',label = 'Data')
+ax1.plot(fit_x, fit_y, 'k--',label = "Fit:")
+ax1.set_title("Seebeck Effect Fit for N-Type Silicon Semiconductor")
+ax1.set_xlabel("Temperature Gradient ($^{\circ}$C)")
+ax1.set_ylabel("Voltage ($\mu$V)")
+ax1.legend(loc="lower right")
+
+
+# these are matplotlib.patch.Patch properies
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+
+textstr  = "$y = A + B x$\n"
+textstr += "\t$A = %0.4f \pm %0.4f$\n" % (fit.beta[0], fit.cov_beta[0][0])
+textstr += "\t$B = %0.4f \pm %0.4f$\n" % (fit.beta[1], fit.cov_beta[1][1])
+textstr += "\t$\mathrm{cov}_{AB} = %0.2e$\n" % (fit.cov_beta[0][1],) 
+
+print "Calibration Coefficients, %s" % textstr
+
+# place a text box in upper left in axes coords
+ax1.text(0.05, 0.95, textstr, transform=ax1.transAxes, fontsize=14,verticalalignment='top', bbox=props)
+fig.savefig(DATASET + ".pdf")
+
+
