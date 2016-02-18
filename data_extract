@@ -1,0 +1,86 @@
+from numpy import array, vstack, savetxt
+import matplotlib.pyplot as plt
+import pickle
+
+EVENTS_FILEPATH = "data/Z_experiment/events.pkl"
+OUTPUT_FILEPATH = "data/calibration.csv"
+
+
+in_file = open(EVENTS_FILEPATH,'r')
+
+t = []
+T = []
+R = []
+last_ts = 0
+last_oven_setpoint = None
+last_resistance = 0
+last_temp = 0
+
+try:
+    while True:
+        event = pickle.load(in_file)
+        event_type, data = event
+        if event_type == "TEMPERATURE_MEASUREMENT":
+#            print event_type    
+#            for key,val in data.items():
+#                print "%s: %s" % (key,val)
+            ts   = data['timestamp']
+            temp = data['oven_temperature']
+            osp  = data['oven_setpoint']
+            if last_oven_setpoint != osp:
+                t.append(ts)
+                T.append(last_temp)
+                R.append(last_resistance)
+            last_ts = ts
+            last_oven_setpoint = osp
+            last_temp = temp
+        elif event_type == "IMPEDANCE_MEASUREMENT":
+            ts  = data['timestamp']
+            r   = data['Z_re']
+            last_resistance = r
+except EOFError:
+    pass
+
+t = array(t[4:])
+T = array(T[4:])
+R = array(R[4:])
+
+D = vstack((t,T,R)).transpose()
+
+#write out the extracted data
+savetxt(OUTPUT_FILEPATH, D, delimiter=',')
+
+
+##plot the extracted data
+
+#t0 = t[0]
+#t  = (t-t0)/3600.0 
+
+#fig1 = plt.figure()
+#ax1 = fig1.add_subplot(111)     # the temperature scale
+#ax2 = ax1.twinx()              # the resistance scale
+
+
+#ax1.plot(t,T,'r.-')
+#ax1.set_yticks(range(-50,140,10))
+
+#ax2.semilogy(t,R,'b.-')
+#ax2.plot(t,R,'b.-')
+
+#ax1.set_title('1k Epoxy-Coated Thermistor Calibration - Raw Data')
+#ax1.set_xlabel("Time (hours)")
+#ax1.set_ylabel('Oven Temperature ($^{\circ}$C)')
+#ax2.set_ylabel('Resistance (Ohms)')
+
+
+#fig2 = plt.figure()
+
+#T_kelvin = T + 273.15
+
+#ax1 = fig2.add_subplot(111)
+#ax1.semilogy(1000.0/T_kelvin,R , 'g.-')
+#ax1.set_title('1k Epoxy-Coated Thermistor Calibration - Steinhart-Hart Curve')
+#ax1.set_ylabel("Resistance (Ohms)")
+#ax1.set_xlabel('1000/T (K$^{-1}$)')
+
+#plt.show()
